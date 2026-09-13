@@ -1,0 +1,23 @@
+[project]
+name = "flightdelay"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "joblib>=1.5.3",
+    "lightgbm>=4.7.0",
+    "matplotlib>=3.11.1",
+    "meteostat>=2.1.4",
+    "mlflow>=3.15.1",
+    "numpy>=2.5.2",
+    "pandas>=2.3.3",
+    "prefect>=3.8.3",
+    "pydantic>=2.13.4",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.0",
+    "seaborn>=0.13.2",
+    "uvicorn[standard]>=0.52.1",
+    "xgboost>=3.4.1",
+]

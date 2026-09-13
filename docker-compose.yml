@@ -1,0 +1,71 @@
+services:
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+
+
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 1090
+      --backend-store-uri sqlite:////app/mlflow.db
+      --default-artifact-root mlflow-artifacts:/
+      --artifacts-destination /app/mlartifacts
+      --serve-artifacts
+      -- allowed-hosts "*"
+
+    ports:
+      - "1090:1090"
+
+    volumes:
+      - ./mlflow.db:/app/mlflow.db
+      - ./mlartifacts:/app/mlartifacts
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+
+    container_name: api
+
+    ports:
+      - "1091:1091"
+
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:1090
+
+    volumes:
+      - ./data:/app/data
+
+    depends_on:
+      - mlflow
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:1091/health')"
+        ]
+      interval: 30s
+      timeout: 15s
+      retries: 2
+      start_period: 60s
+
+  trainer:
+    profiles:
+      - training
+
+    build:
+      context: .
+      dockerfile: Dockerfile.train
+
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:1090
+
+    volumes:
+      - ./data:/app/data
+
+    depends_on:
+      - mlflow
