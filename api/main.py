@@ -1,9 +1,9 @@
 from .model_loader import load_model,get_state
-from .schemas import FlightRequest, DelayResponse
+from .schemas import FlightRequest, DelayResponse,optional
 import pandas as pd
 from DataPipeline import DataPreprocessor, FeatureEngineering
 from DataPipeline.data_collector import Collector,WeatherDownloader
-from config.config import DataConfig
+from config.config import DataConfig,PathConfig
 from fastapi import FastAPI,HTTPException
 from .BatchParser import init_db
 from .batch import router as batch_router
@@ -24,7 +24,13 @@ app.include_router(batch_router)
 @app.get("/health")
 def health():
     s=get_state()
+    if s.processor is None or s.model is None:
+            raise HTTPException(status_code=503,detail="processor or model does not loaded")
     return {"state":"OK","version":s.version,"alias":s.alias}
+
+@app.get("/optional_data")
+def get_optional():
+        return optional
 
 @app.post("/predict",response_model=DelayResponse)
 def predict(request:FlightRequest):
