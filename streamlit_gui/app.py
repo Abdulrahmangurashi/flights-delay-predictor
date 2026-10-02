@@ -97,15 +97,15 @@ with tap2:
         else:
             colA,colB,colC=st.columns(3)
             with colA:
-                st.write(f"the total smples: {result["total_rows"]}")
+                st.write(f"the total smples: {result['total_rows']}")
             with colB:
-                st.write(f"the delay mean: {result["delay_mean"]}")
+                st.write(f"the delay mean: {result['delay_mean']}")
             with colC:
-                st.write(f"the mean errors: {result["mae"]}")
+                st.write(f"the mean errors: {result['mae']}")
         
 with tap3:
     if st.button("update data"):
-        get_data().clear()
+        get_data.clear()
         st.rerun()
         
     resp=requests.get(f"{base_url}/results")
@@ -116,8 +116,8 @@ with tap3:
         else:
             result_df=pd.DataFrame(resp.json())
             result_df["year_month"]=result_df["year"].astype(str)+"-" +result_df["month"].astype(str).str.zfill(2)
-            filter=st.selectbox("the month",["all"]+result_df["year_month"].tolist())
-            display_df=result_df if filter=="all" else result_df[result_df["year_month"]==filter]
+            selected_month=st.selectbox("the month",["all"]+result_df["year_month"].tolist())
+            display_df=result_df if selected_month=="all" else result_df[result_df["year_month"]==selected_month]
             st.dataframe(display_df[["year_month","delay_mean","distance_mean","mae"]])
             st.line_chart(display_df,x="year_month",y="mae")
     except Exception as e:

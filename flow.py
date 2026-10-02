@@ -82,7 +82,7 @@ def search_best_model(results):
 @task(name="tune_model")
 def tune_model(best_model,x_train,y_train,x_val,y_val):
     trainer=Trainer()
-    result=trainer.model_tuning(best_model["model"],x_train,y_train,best_model["model_name"],best_model["metrics"]["r2_val"])
+    result=trainer.model_tuning(best_model["model"],x_train,y_train,x_val,y_val,best_model["model_name"],best_model["metrics"]["r2_val"])
     if len(result)==2:
         return best_model["model"],best_model["run_id"]
     metrics,tuned_model,run_id=result
@@ -141,7 +141,7 @@ def flight_delay_pipeline(tune=False):
     test_metrics=test_model(final_model,x_test_processed,y_test,final_run_id)
 
     uri,model=register_model(final_run_id,pipeline)
-    return best_model
+    return final_model
 
 
 flight_delay_pipeline()
