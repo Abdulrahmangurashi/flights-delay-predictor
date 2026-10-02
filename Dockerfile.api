@@ -6,11 +6,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+RUN pip install uv
 
-COPY pyproject.toml uv.lock ./
+COPY requirements-api.txt requirements-api.txt
 
-RUN uv sync --frozen
+RUN uv pip install --system -r requirements-api.txt
 
 COPY api ./api
 
@@ -22,4 +22,4 @@ COPY DataPipeline ./DataPipeline
 
 EXPOSE 1091
 
-CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "1091"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "1091"]

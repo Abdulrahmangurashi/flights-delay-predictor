@@ -16,12 +16,12 @@ from config.config import MlflowConfig, ModelConfig
 
 def model_stage():
     models={
-        #"linear regressor":LinearRegression(),
-        #"lasso":Lasso(),
-        #"ridge":Ridge(),
- #"elastic net":ElasticNet(),
-#        "random forest":RandomForestRegressor(n_estimators=300,max_depth=15,min_samples_split=5,random_state=42,n_jobs=-1),
-#        "gradient boosting":GradientBoostingRegressor(),
+        "linear regressor":LinearRegression(),
+        "lasso":Lasso(),
+        "ridge":Ridge(),
+ "elastic net":ElasticNet(),
+        "random forest":RandomForestRegressor(n_estimators=300,max_depth=15,min_samples_split=5,random_state=42,n_jobs=-1),
+        "gradient boosting":GradientBoostingRegressor(),
         "lightgbm":LGBMRegressor(n_estimators=500,random_state=42,learning_rate=0.05,n_jobs=-1)
     }
     return models

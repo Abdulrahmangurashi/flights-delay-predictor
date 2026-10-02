@@ -74,7 +74,7 @@ with tap1:
         if resp.status_code!=200:
             st.error(f"{resp.status_code}:{resp.text}")
         else:
-            st.write(f"the delay minutes is {resp.json()["delay_minute"]}")
+            st.write(f"the delay minutes is {resp.json()['delay_minutes']}")
 
 with tap2:
     st.subheader("the batch predictor")
@@ -105,8 +105,8 @@ with tap2:
         
 with tap3:
     if st.button("update data"):
-        
         get_data().clear()
+        st.rerun()
         
     resp=requests.get(f"{base_url}/results")
     try:

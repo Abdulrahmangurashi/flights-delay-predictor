@@ -121,8 +121,8 @@ longitude
         # merging data
         merge_df=pd.merge_asof(flight_df,weather_df,left_on="CRSDepDateTime",right_on="time",left_by="Origin",right_by="airport_code",direction="backward",tolerance=pd.Timedelta("1h"))
         
-        # save data - parquet بدل csv لتقليل الحجم عند الرفع للسيرفر (طلب المستخدم)
-        merge_df.to_parquet(os.path.join(self.dirname,str(year),str(month),"flight_weather.parquet"),index=False)
+        # save data
+        merge_df.to_csv(os.path.join(self.dirname,str(year),str(month),"flight_weather.csv"),index=False)
         logger.info("the merged data is saved")
         return merge_df
 
@@ -144,21 +144,20 @@ longitude
         # looping through monthes to loading their data and adding to the returned dataframe
         for year,month in self.get_months():
             logger.info(f"{year} , {month} processing")
-            # --- تعديل: data_downloader يُعيد الآن مسار parquet (أو csv
-            # في حالات نادرة) جاهزاً للقراءة مباشرة - الاستخراج من zip
-            # والتحويل لـ parquet يحدثان داخلها بالكامل (انظر
-            # process_raw_to_parquet في FlightsDownloader) ---
-            data_path=self.flight_downloader.data_downloader(year,month)
-
-            if data_path is None:
+            # loading data file with zip extension
+            zip_path=self.flight_downloader.data_downloader(year,month)
+            
+            if zip_path is None:
                 logger.error(f"the {year} {month} is not loaded succesfully")
                 chunks.append(pd.DataFrame())
                 continue
-            logger.info(f"parsing {data_path}")
+            # extracting csv files from zip
+            csv_file=self.csv_extracter(zip_path)
+            logger.info(f"parsing {csv_file}")
             origins=set() # the set for airports to help in weather data
             
             # the flights data
-            flight_df=self.flight_downloader.load_csv_file(data_path,use_cols=DataConfig.pred_cols)
+            flight_df=self.flight_downloader.load_csv_file(csv_file,use_cols=DataConfig.pred_cols)
             flight_df["CRSDepDateTime"]=pd.to_datetime(flight_df["FlightDate"],errors="coerce")+pd.to_timedelta(flight_df["CRSDepTime"]//100,unit="h")+pd.to_timedelta(flight_df["CRSDepTime"]%100,unit="m")
             
             logger.info("loaded flights data")
@@ -195,73 +194,23 @@ class Downloader:
         return os.path.exists(os.path.join(month_dir,filename))
 
     def data_downloader(self,year:int,month:int):
-        """
-        --- التسلسل الجديد المطلوب لتقليل الحجم والتنزيلات المتكررة ---
-        1. parquet موجود؟ أعد مساره مباشرة (لا تنزيل، لا تحويل).
-        2. لا يوجد parquet لكن csv موجود؟ حوّله لـ parquet واحذف الـ csv،
-           أعد مسار الـ parquet الجديد.
-        3. لا يوجد أي منهما لكن الملف الخام (zip للرحلات، أو الامتداد
-           الأصلي لأي downloader فرعي آخر) موجود محلياً؟ استخرج/حمّل منه
-           مباشرة بدل إعادة التنزيل من الإنترنت من جديد.
-        4. لا يوجد أي شيء؟ نزّل من جديد (download())، ثم حوّل الناتج
-           النهائي لـ parquet واحذف الملفات الوسيطة (csv/zip الخام).
-        """
         month_dir=os.path.join(self.data_dir,str(year),str(month))
-        parquet_path=os.path.join(month_dir,f"{self.filename}.parquet")
-        csv_path=os.path.join(month_dir,f"{self.filename}.csv")
-        raw_filename=f"{self.filename}{self.extension}"
-        raw_path=os.path.join(month_dir,raw_filename)
-
-        # 1. parquet جاهز مسبقاً
-        if os.path.exists(parquet_path):
-            print(f"{parquet_path} already exists (parquet)")
-            return parquet_path
-
-        # 2. csv موجود لكن لم يُحوَّل بعد لـ parquet
-        if os.path.exists(csv_path):
-            print(f"{csv_path} already exists - converting to parquet")
-            return self._csv_to_parquet(csv_path,parquet_path)
-
+        filename=f"{self.filename}{self.extension}"
+        if self.is_file_exists(month_dir=month_dir,filename=filename):
+            print(f"{filename} already exists")
+            return os.path.join(month_dir,filename)
         os.makedirs(month_dir,exist_ok=True)
-
-        # 3. الملف الخام (zip أو أي امتداد أصلي آخر) موجود محلياً فعلاً
-        if self.extension!=".csv" and os.path.exists(raw_path):
-            print(f"{raw_path} already exists locally - using it instead of re-downloading")
-            return self.process_raw_to_parquet(raw_path,month_dir,parquet_path,year,month)
-
-        # 4. لا شيء موجود - نزّل من جديد، ثم حوّل للنتيجة النهائية parquet
-        print("month dir: ",month_dir,"file name",raw_filename)
-        downloaded_path=self.download(month_dir,raw_filename,year,month)
-        if downloaded_path is None:
-            return None
-        return self.process_raw_to_parquet(downloaded_path,month_dir,parquet_path,year,month)
-
-    def process_raw_to_parquet(self,raw_path,month_dir,parquet_path,year,month):
-        """
-        يُطبَّق فقط لـ FlightsDownloader (yحتاج استخراج zip أولاً). في
-        WeatherDownloader نتجاوزه لأن download() يُنتج DataFrame مباشرة.
-        """
-        return raw_path
-
-    def _csv_to_parquet(self,csv_path,parquet_path,use_cols=None):
-        df=pd.read_csv(csv_path,usecols=use_cols)
-        df.to_parquet(parquet_path,index=False)
-        os.remove(csv_path)  # --- حذف الـ csv الوسيط لتقليل الحجم كما طُلب ---
-        print(f"converted -> {parquet_path}, removed {csv_path}")
-        return parquet_path
+        print("month dir: ",month_dir,"file name",filename)
+        return self.download(month_dir,filename,year,month)
 
     def download(self,month_dir,filename,year,month):
         pass
 
     def load_csv_file(self,path, use_cols)-> pd.DataFrame:
-        if not path or not os.path.exists(path):
+        if not os.path.exists(path):
             return pd.DataFrame()
-        # --- يقرأ csv أو parquet حسب الامتداد الفعلي للمسار المُعاد ---
-        if path.lower().endswith(".parquet"):
-            return pd.read_parquet(path,columns=use_cols)
         if path.lower().endswith(".csv"):
             return pd.read_csv(path,usecols=use_cols)
-        return pd.DataFrame()
 
 
 
@@ -292,26 +241,6 @@ class FlightsDownloader(Downloader):
     def parse_time(self,time):
         return time//100,time%100
 
-    def process_raw_to_parquet(self,zip_path,month_dir,parquet_path,year,month):
-        """
-        --- التسلسل المطلوب: يستخرج csv من zip، يحوّله parquet، ثم يحذف
-        كلاً من zip وcsv الوسيط (لا نُبقي إلا الملف النهائي الأصغر) ---
-        """
-        csv_file=""
-        with zipfile.ZipFile(zip_path) as zf:
-            for member in zf.namelist():
-                if member.lower().endswith(".csv"):
-                    print(f"extracting {member}")
-                    zf.extract(member,month_dir)
-                    csv_file=os.path.join(month_dir,member)
-        if not csv_file:
-            logger.error(f"no csv found inside {zip_path}")
-            return None
-        result=self._csv_to_parquet(csv_file,parquet_path,use_cols=DataConfig.pred_cols)
-        os.remove(zip_path)  # --- حذف الـ zip الخام بعد نجاح التحويل ---
-        print(f"removed {zip_path}")
-        return result
-
 class WeatherDownloader(Downloader):
     def __init__(self, url=DataConfig.weather_url, filename="weather", extension=".csv",airports_info=None,weather_cols=DataConfig.weather_cols):
         super().__init__(url, filename, extension)
@@ -319,9 +248,8 @@ class WeatherDownloader(Downloader):
         self.weather_cols=weather_cols
         
     def download(self, month_dir, filename, year, month):
-        # --- تعديل: نحفظ parquet مباشرة (وليس csv ثم تحويل لاحق) -
-        # لا يوجد "zip خام" لبيانات الطقس أصلاً، فلا داعي لمرحلة وسيطة ---
-        file_path=os.path.join(month_dir,f"{self.filename}.parquet")
+        filename=f"{self.filename}{self.extension}"
+        file_path=os.path.join(month_dir,filename)
         last_month_day=monthrange(year,month)[1]
         batch_size=100
         airports_codes,lats,longs=self.get_coordinates()
@@ -346,8 +274,8 @@ class WeatherDownloader(Downloader):
                 frames.append(df)
             time.sleep(1)
         dataframe=pd.concat(frames,ignore_index=True)
-        dataframe.to_parquet(file_path,index=False)
-        print(f"{file_path} saved")
+        dataframe.to_csv(file_path,index=False)
+        print(f"{filename} saved")
         return file_path
 
     def get_online_weather(self, airport_code, date):

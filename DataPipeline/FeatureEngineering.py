@@ -22,7 +22,7 @@ class HistoricalFeatureEngineering(BaseEstimator,TransformerMixin):
         
         # checking online or batch
         if len(x)==1:
-            x=self.transform_online(x)
+            x=self.transform_online(x).drop("DepDelay",axis=1)
         else:
             x=self.transform_batch(x)
 
@@ -47,7 +47,9 @@ class HistoricalFeatureEngineering(BaseEstimator,TransformerMixin):
         return df
 
     def previous_month(self,year,month):
-        return (year-1,12) if month == 1 else (year,month -1)
+        if month ==1:
+            return year-1,12
+        return year,month -1
 
     def download_prev_data(self,start_year,start_month,end_year,end_month,until=None):
         self.collector=Collector(start_year,start_month,end_year,end_month)
@@ -63,6 +65,7 @@ class HistoricalFeatureEngineering(BaseEstimator,TransformerMixin):
         
     def transform_online(self,x:pd.DataFrame):
         sample=x.copy()
+        sample["DepDelay"]=np.nan
         sample["ArrDelay"]=np.nan
         date=pd.to_datetime(sample["CRSDepDateTime"].iloc[0])
         year=date.year
@@ -78,13 +81,13 @@ class HistoricalFeatureEngineering(BaseEstimator,TransformerMixin):
         x=x.copy()
         x= x.sort_values("CRSDepDateTime").reset_index(drop=True)
         first=x.iloc[0]["CRSDepDateTime"]
-        year=x["Year"].min()
-        month=x["Month"].min()
+        year=first.year
+        month=first.month
         prev_year,prev_month=self.previous_month(year,month)
         data=self.download_prev_data(prev_year,prev_month,prev_year,prev_month,first)
         x=pd.concat([data,x],ignore_index=True)
         x=self.create_features(x)
-        return x[(x["Year"]>=year)&(x["Month"]>=month)]
+        return x[x["CRSDepDateTime"] >= first]
 
     def fit_transform(self,x,y=None):
         self.fit(x)

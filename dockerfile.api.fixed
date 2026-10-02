@@ -1,6 +1,0 @@
-FROM flight_delay_predictor-api:latest
-
-RUN ln -s /app/.venv/lib/python3.13/site-packages/xgboost.libs/libgomp-e985bcbb.so.1.0.0 \
-    /app/.venv/lib/python3.13/site-packages/xgboost.libs/libgomp.so.1
-
-ENV LD_LIBRARY_PATH=/app/.venv/lib/python3.13/site-packages/xgboost.libs

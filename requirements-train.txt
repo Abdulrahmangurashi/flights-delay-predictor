@@ -1,0 +1,8 @@
+mlflow>=3.15.1
+scikit-learn>=1.9.0
+lightgbm>=4.7.0
+pandas>=2.3.3
+numpy>=2.5.2
+pyarrow>=17.0.0
+requests>=2.34.2
+prefect>=3.8.3

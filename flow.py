@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import json
 
-#@task(name="collect",retries=3,retry_delay_seconds=30)
+@task(name="collect",retries=3,retry_delay_seconds=30)
 def collect_data():
     print("start collecting data")
     collector = Collector()
@@ -18,7 +18,7 @@ def collect_data():
     print(f"collecting: {df.shape[0]} samples")
     return df
 
-#@task(name="preprocesseer")
+@task(name="preprocesseer")
 def processing_data(df):
     print("start data preprocessing")
     preProcessor=PreProcessor()
@@ -26,7 +26,7 @@ def processing_data(df):
     print(f"data preprocessing: {df.shape[0]} samples")
     return df
 
-#@task(name="split")
+@task(name="split")
 def split_data(df):
     historicalFeature=HistoricalFeatureEngineering()
     df=historicalFeature.transform(df)
@@ -40,7 +40,7 @@ def split_data(df):
     print(f"y test shape: {y_test.shape}")
     return x_train,x_val,x_test,y_train,y_val,y_test
 
-#@task(name="save_important")
+@task(name="save_important")
 def save_optional_cat_data(x_train:pd.DataFrame):
     df=x_train.copy()
     data={}
@@ -54,7 +54,7 @@ def save_optional_cat_data(x_train:pd.DataFrame):
         json.dump(data,f,indent=2)
     print(f"the origin, dest,airline,tail_numbe saved at {str(path)}")
 
-#@task(name="pipeline")
+@task(name="pipeline")
 def data_pipeline(x_train,x_val,x_test,y_train):
     pipeline=pipeline_builder()
     x_train_processed=pipeline.fit_transform(x_train,y_train)
@@ -62,7 +62,7 @@ def data_pipeline(x_train,x_val,x_test,y_train):
     x_test_processed=pipeline.transform(x_test)
     return x_train_processed,x_val_processed,x_test_processed,pipeline
 
-#@task(name="train_model",retries=2,retry_delay_seconds=15)
+@task(name="train_model",retries=2,retry_delay_seconds=15)
 def train_model(model,x_train,y_train,x_val,y_val,model_name):
     trainer=Trainer()
     result,trained_model,run_id=trainer.train_and_validate(model,x_train,y_train,x_val,y_val,model_name)
@@ -73,13 +73,13 @@ def train_model(model,x_train,y_train,x_val,y_val,model_name):
         "run_id":run_id
     }
 
-#@task(name="select_best")
+@task(name="select_best")
 def search_best_model(results):
     model_name=max(results,key=lambda name:results[name]["metrics"]["r2_val"])
     best_model=results[model_name]
     return best_model
 
-#@task(name="tune_model")
+@task(name="tune_model")
 def tune_model(best_model,x_train,y_train,x_val,y_val):
     trainer=Trainer()
     result=trainer.model_tuning(best_model["model"],x_train,y_train,best_model["model_name"],best_model["metrics"]["r2_val"])
@@ -90,13 +90,13 @@ def tune_model(best_model,x_train,y_train,x_val,y_val):
         return tuned_model,run_id
     return best_model["model"],best_model["run_id"]
 
-#@task(name="final_test")
+@task(name="final_test")
 def test_model(model,x_test,y_test,run_id):
     trainer=Trainer()
     test_metrics=trainer.evaluate_and_test(model,x_test,y_test,run_id)
     return test_metrics
 
-#@task(name="register_model")
+@task(name="register_model")
 def register_model(run_id,pipeline):
     
     print("registering model")
@@ -116,13 +116,14 @@ def register_model(run_id,pipeline):
     print(f"the champion version:{champ_version} \n the champion run id: {champ_run}")
     return model_register.get_uri(MlflowConfig.championAlias),model_register.get_model(MlflowConfig.championAlias)
 
-#@flow(name="flight_delay_pipeline")
+@flow(name="flight_delay_pipeline")
 def flight_delay_pipeline(tune=False):
     df=collect_data()
     df=processing_data(df)
     x_train,x_val,x_test,y_train,y_val,y_test=split_data(df)
     save_optional_cat_data(x_train)
     x_train_processed,x_val_processed,x_test_processed,pipeline=data_pipeline(x_train,x_val,x_test,y_train)
+
     trained_models={}
     for model_name,model in model_stage().items():
         print(model_name)
@@ -141,5 +142,6 @@ def flight_delay_pipeline(tune=False):
 
     uri,model=register_model(final_run_id,pipeline)
     return best_model
+
 
 flight_delay_pipeline()

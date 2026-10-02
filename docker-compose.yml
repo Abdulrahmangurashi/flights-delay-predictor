@@ -69,3 +69,17 @@ services:
 
     depends_on:
       - mlflow
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+
+    ports:
+      - "1092:1092"
+
+    environment:
+      - api_url=http://api:1091
+
+    depends_on:
+      - api
